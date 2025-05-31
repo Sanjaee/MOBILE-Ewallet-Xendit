@@ -5,6 +5,7 @@ import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_text_field.dart';
+import 'otp_verification_screen.dart'; // Import OtpPurpose
 
 class RegisterScreen extends StatefulWidget {
   @override
@@ -35,22 +36,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final email = _emailController.text.trim();
     
-    final success = await authProvider.register(
+    final result = await authProvider.register(
       name: _nameController.text.trim(),
-      email: _emailController.text.trim(),
+      email: email,
       password: _passwordController.text,
       phoneNumber: _phoneController.text.trim(),
     );
 
-    if (success) {
-      Navigator.pushReplacementNamed(context, '/home');
-    } else {
-      Helpers.showSnackBar(
-        context,
-        authProvider.error ?? 'Registrasi gagal',
-        isError: true,
-      );
+    if (mounted) { // Check if the widget is still in the tree
+      if (result['success'] == true && result['needsVerification'] == true) {
+        Helpers.showSnackBar(context, result['message'] ?? 'Registrasi berhasil. Silakan verifikasi OTP.');
+        Navigator.pushReplacement( // Use pushReplacement to prevent going back to register form
+          context,
+          MaterialPageRoute(
+            builder: (context) => OtpVerificationScreen(
+              email: result['email'] ?? email, // Use email from provider if available
+              purpose: OtpPurpose.emailVerification,
+            ),
+          ),
+        );
+      } else {
+        Helpers.showSnackBar(
+          context,
+          result['error'] ?? 'Registrasi gagal',
+          isError: true,
+        );
+      }
     }
   }
 
@@ -140,8 +153,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     if (value == null || value.isEmpty) {
                       return 'Nomor telepon harus diisi';
                     }
-                    if (value.length < 10) {
-                      return 'Nomor telepon minimal 10 digit';
+                    if (value.length < 10) { // Basic validation
+                      return 'Nomor telepon tidak valid';
                     }
                     return null;
                   },
@@ -224,7 +237,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     GestureDetector(
                       onTap: () {
-                        Navigator.pop(context);
+                        Navigator.pop(context); // Go back to login screen
                       },
                       child: Text(
                         'Masuk di sini',

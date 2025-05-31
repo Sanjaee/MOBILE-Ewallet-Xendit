@@ -1,6 +1,26 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../utils/constants.dart';
+import '../utils/constants.dart'; // Asumsikan ApiEndpoints.baseUrl ada di sini
+
+// Helper untuk logging dan parsing respons
+void _logRequest(String method, String url,
+    {dynamic body, Map<String, String>? headers}) {
+  print('🚀 [API Request] $method: $url');
+  if (headers != null) print('📋 Headers: $headers');
+  if (body != null) print('📦 Body: ${jsonEncode(body)}');
+}
+
+void _logResponse(http.Response response) {
+  print('✅ [API Response] Status: ${response.statusCode}');
+  print('📋 Headers: ${response.headers}');
+  print('📦 Body: ${response.body}');
+}
+
+void _logError(String method, String url, dynamic error, dynamic stackTrace) {
+  print('❌ [API Error] $method: $url');
+  print('💣 Error: $error');
+  print('📄 StackTrace: $stackTrace');
+}
 
 class ApiService {
   static Map<String, String> _getHeaders({String? token}) {
@@ -12,36 +32,30 @@ class ApiService {
     if (token != null) {
       headers['Authorization'] = 'Bearer $token';
     }
-
     return headers;
   }
 
-  // Helper method to handle response parsing
   static Map<String, dynamic> _parseResponse(http.Response response) {
-    print('📊 Response Status: ${response.statusCode}');
-    print('📝 Response Headers: ${response.headers}');
-    print('📄 Response Body: ${response.body}');
-
-    if (response.body.trim().startsWith('<!DOCTYPE') ||
-        response.body.trim().startsWith('<html')) {
-      throw FormatException(
-          'Server returned HTML instead of JSON. Status: ${response.statusCode}');
+    _logResponse(response);
+    if (response.body.isEmpty) {
+      return {
+        'error': 'Empty response from server',
+        'statusCode': response.statusCode
+      };
     }
-
-    if (response.body.trim().isEmpty) {
-      throw FormatException(
-          'Empty response from server. Status: ${response.statusCode}');
-    }
-
     try {
       return jsonDecode(response.body) as Map<String, dynamic>;
     } catch (e) {
-      throw FormatException(
-          'Invalid JSON response: $e. Body: ${response.body}');
+      print('Error parsing JSON: $e');
+      return {
+        'error': 'Invalid JSON response',
+        'details': response.body,
+        'statusCode': response.statusCode
+      };
     }
   }
 
-  // Test server connectivity with multiple approaches
+  // Fungsi fullServerTest ditambahkan kembali di sini
   static Future<Map<String, dynamic>> fullServerTest(String token) async {
     final results = <String, dynamic>{};
 
@@ -53,7 +67,7 @@ class ApiService {
     try {
       print('\n1️⃣ Testing base server...');
       final baseResponse = await http.get(
-        Uri.parse(ApiEndpoints.baseUrl),
+        Uri.parse(ApiEndpoints.baseUrl), // Menggunakan ApiEndpoints.baseUrl
         headers: {'Accept': 'application/json'},
       ).timeout(Duration(seconds: 10));
 
@@ -75,11 +89,12 @@ class ApiService {
     }
 
     // 2. Test common endpoint variations
+    // Pastikan endpoint ini sesuai dengan struktur API Anda (misal, dengan prefix /api/)
     final endpointVariations = [
-      '/api/transactions',
-      '/transactions',
-      '/api/transaction',
-      '/transaction',
+      '/api/transactions', // Contoh dengan prefix /api/
+      // '/transactions', // Mungkin tidak perlu jika semua pakai /api/
+      // '/api/transaction', // Sesuaikan jika ada endpoint tunggal
+      // '/transaction',
     ];
 
     for (final endpoint in endpointVariations) {
@@ -90,7 +105,7 @@ class ApiService {
         final response = await http
             .get(
               Uri.parse(url),
-              headers: _getHeaders(token: token),
+              headers: _getHeaders(token: token), // Menggunakan _getHeaders
             )
             .timeout(Duration(seconds: 10));
 
@@ -119,11 +134,10 @@ class ApiService {
     // 3. Test authentication with a known working endpoint
     try {
       print('\n3️⃣ Testing authentication...');
+      // Pastikan endpoint ini adalah endpoint yang memerlukan autentikasi dan valid
       final authTestEndpoints = [
-        '/users/balance',
-        '/api/users/balance',
-        '/user/profile',
-        '/api/user/profile',
+        '/api/users/balance', // Contoh endpoint yang memerlukan auth
+        // '/api/user/profile', // Jika ada endpoint profile
       ];
 
       for (final endpoint in authTestEndpoints) {
@@ -132,14 +146,14 @@ class ApiService {
           final response = await http
               .get(
                 Uri.parse(url),
-                headers: _getHeaders(token: token),
+                headers: _getHeaders(token: token), // Menggunakan _getHeaders
               )
               .timeout(Duration(seconds: 10));
 
           results['auth_$endpoint'] = {
             'status': response.statusCode,
             'bodyPreview': response.body.length > 100
-                ? response.body.substring(0, 100)
+                ? response.body.substring(0, 100) + '...'
                 : response.body,
           };
 
@@ -147,43 +161,54 @@ class ApiService {
 
           if (response.statusCode == 200) {
             print('✅ Authentication working with $endpoint');
-            break;
+            break; // Hentikan jika satu endpoint auth berhasil
           }
         } catch (e) {
           print('❌ Auth test $endpoint failed: $e');
+          // Jangan break di sini, coba endpoint auth lain jika ada
         }
       }
     } catch (e) {
-      print('❌ Authentication test failed: $e');
+      // Catch error umum untuk blok test authentication
+      print('❌ Authentication test block failed: $e');
     }
 
-    // 4. Test with different HTTP methods
+    // 4. Test with different HTTP methods (OPTIONS, HEAD)
     try {
       print('\n4️⃣ Testing different HTTP methods...');
-      final transactionUrl = '${ApiEndpoints.baseUrl}/api/transactions';
+      final transactionUrl =
+          '${ApiEndpoints.baseUrl}/api/transactions'; // Contoh endpoint
 
       // OPTIONS request (check CORS)
       try {
-        final optionsResponse = await http.Client()
-            .send(http.Request('OPTIONS', Uri.parse(transactionUrl))
-              ..headers.addAll(_getHeaders(token: token)))
-            .timeout(Duration(seconds: 10));
+        print('🔧 Testing OPTIONS: $transactionUrl');
+        final request = http.Request('OPTIONS', Uri.parse(transactionUrl));
+        request.headers
+            .addAll(_getHeaders(token: token)); // Menggunakan _getHeaders
+
+        final streamedResponse =
+            await http.Client().send(request).timeout(Duration(seconds: 10));
 
         results['OPTIONS_api_transactions'] = {
-          'status': optionsResponse.statusCode,
-          'headers': optionsResponse.headers,
+          'status': streamedResponse.statusCode,
+          'headers': streamedResponse.headers,
         };
-        print('🔧 OPTIONS /api/transactions -> ${optionsResponse.statusCode}');
+        print('🔧 OPTIONS $transactionUrl -> ${streamedResponse.statusCode}');
       } catch (e) {
-        print('❌ OPTIONS test failed: $e');
+        print('❌ OPTIONS test failed for $transactionUrl: $e');
+        results['OPTIONS_api_transactions'] = {
+          'error': e.toString(),
+          'accessible': false
+        };
       }
 
       // HEAD request
       try {
+        print('🔧 Testing HEAD: $transactionUrl');
         final headResponse = await http
             .head(
               Uri.parse(transactionUrl),
-              headers: _getHeaders(token: token),
+              headers: _getHeaders(token: token), // Menggunakan _getHeaders
             )
             .timeout(Duration(seconds: 10));
 
@@ -191,29 +216,37 @@ class ApiService {
           'status': headResponse.statusCode,
           'headers': headResponse.headers,
         };
-        print('🔧 HEAD /api/transactions -> ${headResponse.statusCode}');
+        print('🔧 HEAD $transactionUrl -> ${headResponse.statusCode}');
       } catch (e) {
-        print('❌ HEAD test failed: $e');
+        print('❌ HEAD test failed for $transactionUrl: $e');
+        results['HEAD_api_transactions'] = {
+          'error': e.toString(),
+          'accessible': false
+        };
       }
     } catch (e) {
-      print('❌ HTTP methods test failed: $e');
+      // Catch error umum untuk blok test HTTP methods
+      print('❌ HTTP methods test block failed: $e');
     }
 
     print('\n🏁 Server test completed');
     return results;
   }
 
-  // Auth endpoints (unchanged)
   static Future<Map<String, dynamic>> register({
     required String name,
     required String email,
     required String password,
     required String phoneNumber,
   }) async {
+    final url = '${ApiEndpoints.baseUrl}/api/users/register';
+    _logRequest('POST', url, body: {
+      'name': name,
+      'email': email,
+      'password': password,
+      'phoneNumber': phoneNumber,
+    });
     try {
-      final url = '${ApiEndpoints.baseUrl}/users/register';
-      print('🔗 POST: $url');
-
       final response = await http.post(
         Uri.parse(url),
         headers: _getHeaders(),
@@ -224,11 +257,10 @@ class ApiService {
           'phoneNumber': phoneNumber,
         }),
       );
-
       return _parseResponse(response);
-    } catch (e) {
-      print('❌ Register Error: $e');
-      throw Exception('Network error: $e');
+    } catch (e, s) {
+      _logError('POST', url, e, s);
+      return {'error': 'Network error during registration: ${e.toString()}'};
     }
   }
 
@@ -236,10 +268,9 @@ class ApiService {
     required String email,
     required String password,
   }) async {
+    final url = '${ApiEndpoints.baseUrl}/api/users/login';
+    _logRequest('POST', url, body: {'email': email, 'password': password});
     try {
-      final url = '${ApiEndpoints.baseUrl}/users/login';
-      print('🔗 POST: $url');
-
       final response = await http.post(
         Uri.parse(url),
         headers: _getHeaders(),
@@ -248,137 +279,177 @@ class ApiService {
           'password': password,
         }),
       );
-
       return _parseResponse(response);
-    } catch (e) {
-      print('❌ Login Error: $e');
-      throw Exception('Network error: $e');
+    } catch (e, s) {
+      _logError('POST', url, e, s);
+      return {'error': 'Network error during login: ${e.toString()}'};
     }
   }
 
-  // Wallet endpoints
-  static Future<Map<String, dynamic>> getBalance(String token) async {
+  static Future<Map<String, dynamic>> verifyOtp({
+    required String email,
+    required String otp,
+    String type = "VERIFICATION",
+  }) async {
+    final url = '${ApiEndpoints.baseUrl}/api/users/verify-otp';
+    _logRequest('POST', url, body: {'email': email, 'otp': otp});
     try {
-      final url = '${ApiEndpoints.baseUrl}/users/balance';
-      print('🔗 GET: $url');
+      final response = await http.post(
+        Uri.parse(url),
+        headers: _getHeaders(),
+        body: jsonEncode({
+          'email': email,
+          'otp': otp,
+        }),
+      );
+      return _parseResponse(response);
+    } catch (e, s) {
+      _logError('POST', url, e, s);
+      return {
+        'error': 'Network error during OTP verification: ${e.toString()}'
+      };
+    }
+  }
 
+  static Future<Map<String, dynamic>> resendOtp({
+    required String email,
+    required String type,
+  }) async {
+    final url = '${ApiEndpoints.baseUrl}/api/users/resend-otp';
+    _logRequest('POST', url, body: {'email': email, 'type': type});
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: _getHeaders(),
+        body: jsonEncode({
+          'email': email,
+          'type': type,
+        }),
+      );
+      return _parseResponse(response);
+    } catch (e, s) {
+      _logError('POST', url, e, s);
+      return {'error': 'Network error during resend OTP: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> forgotPassword({
+    required String email,
+  }) async {
+    final url = '${ApiEndpoints.baseUrl}/api/users/forgot-password';
+    _logRequest('POST', url, body: {'email': email});
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: _getHeaders(),
+        body: jsonEncode({'email': email}),
+      );
+      return _parseResponse(response);
+    } catch (e, s) {
+      _logError('POST', url, e, s);
+      return {'error': 'Network error during forgot password: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> resetPassword({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    final url = '${ApiEndpoints.baseUrl}/api/users/reset-password';
+    _logRequest('POST', url,
+        body: {'email': email, 'otp': otp, 'newPassword': '***'});
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: _getHeaders(),
+        body: jsonEncode({
+          'email': email,
+          'otp': otp,
+          'newPassword': newPassword,
+        }),
+      );
+      return _parseResponse(response);
+    } catch (e, s) {
+      _logError('POST', url, e, s);
+      return {'error': 'Network error during reset password: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> changePassword({
+    required String token,
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    final url = '${ApiEndpoints.baseUrl}/api/users/change-password';
+    _logRequest('POST', url,
+        body: {'oldPassword': '***', 'newPassword': '***'},
+        headers: _getHeaders(token: token));
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: _getHeaders(token: token),
+        body: jsonEncode({
+          'oldPassword': oldPassword,
+          'newPassword': newPassword,
+        }),
+      );
+      return _parseResponse(response);
+    } catch (e, s) {
+      _logError('POST', url, e, s);
+      return {'error': 'Network error during change password: ${e.toString()}'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> getBalance(String token) async {
+    final url = '${ApiEndpoints.baseUrl}/api/users/balance';
+    _logRequest('GET', url, headers: _getHeaders(token: token));
+    try {
       final response = await http.get(
         Uri.parse(url),
         headers: _getHeaders(token: token),
       );
-
       return _parseResponse(response);
-    } catch (e) {
-      print('❌ Get Balance Error: $e');
-      throw Exception('Network error: $e');
+    } catch (e, s) {
+      _logError('GET', url, e, s);
+      return {'error': 'Network error fetching balance: ${e.toString()}'};
     }
   }
 
-  // Smart transactions endpoint with multiple fallbacks
   static Future<Map<String, dynamic>> getTransactions({
     required String token,
     int page = 1,
-    int limit = 50,
+    int limit = 10,
     String? type,
   }) async {
-    // Try different endpoint variations
-    final endpointVariations = [
-      '/api/transactions',
-      '/transactions',
-      '/api/transaction',
-      '/transaction',
-    ];
-
-    Map<String, dynamic>? lastError;
-
-    for (final endpoint in endpointVariations) {
-      try {
-        String url = '${ApiEndpoints.baseUrl}$endpoint?page=$page&limit=$limit';
-
-        if (type != null && type.isNotEmpty) {
-          url += '&type=$type';
-        }
-
-        print('🔗 Trying GET: $url');
-
-        final response = await http
-            .get(
-              Uri.parse(url),
-              headers: _getHeaders(token: token),
-            )
-            .timeout(Duration(seconds: 15));
-
-        print('📊 Response Status: ${response.statusCode}');
-
-        // If successful response
-        if (response.statusCode == 200) {
-          print('✅ Success with endpoint: $endpoint');
-          return _parseResponse(response);
-        }
-
-        // If authentication error
-        if (response.statusCode == 401) {
-          return {
-            'error': 'Authentication failed. Please login again.',
-            'statusCode': 401,
-          };
-        }
-
-        // If forbidden
-        if (response.statusCode == 403) {
-          return {
-            'error': 'Access denied. Please check your permissions.',
-            'statusCode': 403,
-          };
-        }
-
-        // If not found, try next endpoint
-        if (response.statusCode == 404) {
-          print('❌ $endpoint not found (404), trying next...');
-          lastError = {
-            'error': 'Endpoint $endpoint not found',
-            'statusCode': 404,
-            'endpoint': endpoint,
-          };
-          continue;
-        }
-
-        // Other error codes
-        lastError = {
-          'error': 'Server error: ${response.statusCode}',
-          'statusCode': response.statusCode,
-          'endpoint': endpoint,
-          'body': response.body,
-        };
-      } catch (e) {
-        print('❌ Error with $endpoint: $e');
-        lastError = {
-          'error': 'Network error: ${e.toString()}',
-          'endpoint': endpoint,
-          'details': e.runtimeType.toString(),
-        };
-        continue;
-      }
+    String url =
+        '${ApiEndpoints.baseUrl}/api/transactions?page=$page&limit=$limit';
+    if (type != null && type.isNotEmpty) {
+      url += '&type=$type';
     }
-
-    // If all endpoints failed, return the last error
-    return lastError ??
-        {
-          'error': 'All transaction endpoints failed',
-          'statusCode': 404,
-        };
+    _logRequest('GET', url, headers: _getHeaders(token: token));
+    try {
+      final response = await http.get(
+        Uri.parse(url),
+        headers: _getHeaders(token: token),
+      );
+      return _parseResponse(response);
+    } catch (e, s) {
+      _logError('GET', url, e, s);
+      return {'error': 'Network error fetching transactions: ${e.toString()}'};
+    }
   }
 
-  // Other methods remain the same...
   static Future<Map<String, dynamic>> topUp({
     required String token,
     required int amount,
     required String paymentMethod,
   }) async {
+    final url = '${ApiEndpoints.baseUrl}/api/wallet/topup';
+    _logRequest('POST', url,
+        body: {'amount': amount, 'paymentMethod': paymentMethod},
+        headers: _getHeaders(token: token));
     try {
-      final url = '${ApiEndpoints.baseUrl}/wallet/topup';
-      print('🔗 POST: $url');
-
       final response = await http.post(
         Uri.parse(url),
         headers: _getHeaders(token: token),
@@ -387,11 +458,10 @@ class ApiService {
           'paymentMethod': paymentMethod,
         }),
       );
-
       return _parseResponse(response);
-    } catch (e) {
-      print('❌ Top Up Error: $e');
-      throw Exception('Network error: $e');
+    } catch (e, s) {
+      _logError('POST', url, e, s);
+      return {'error': 'Network error during top up: ${e.toString()}'};
     }
   }
 
@@ -401,9 +471,17 @@ class ApiService {
     required int amount,
     String? description,
   }) async {
+    final url = '${ApiEndpoints.baseUrl}/api/wallet/transfer';
+    _logRequest('POST', url,
+        body: {
+          'recipientPhoneNumber': recipientPhoneNumber,
+          'amount': amount,
+          'description': description,
+        },
+        headers: _getHeaders(token: token));
     try {
       final response = await http.post(
-        Uri.parse('${ApiEndpoints.baseUrl}/wallet/transfer'),
+        Uri.parse(url),
         headers: _getHeaders(token: token),
         body: jsonEncode({
           'recipientPhoneNumber': recipientPhoneNumber,
@@ -411,10 +489,10 @@ class ApiService {
           'description': description,
         }),
       );
-
-      return jsonDecode(response.body);
-    } catch (e) {
-      throw Exception('Network error: $e');
+      return _parseResponse(response);
+    } catch (e, s) {
+      _logError('POST', url, e, s);
+      return {'error': 'Network error during transfer: ${e.toString()}'};
     }
   }
 
@@ -425,10 +503,16 @@ class ApiService {
     required String accountNumber,
     required String accountHolderName,
   }) async {
+    final url = '${ApiEndpoints.baseUrl}/api/wallet/withdraw';
+    _logRequest('POST', url,
+        body: {
+          'amount': amount,
+          'bankCode': bankCode,
+          'accountNumber': accountNumber,
+          'accountHolderName': accountHolderName,
+        },
+        headers: _getHeaders(token: token));
     try {
-      final url = '${ApiEndpoints.baseUrl}/wallet/withdraw';
-      print('🔗 POST: $url');
-
       final response = await http.post(
         Uri.parse(url),
         headers: _getHeaders(token: token),
@@ -439,11 +523,10 @@ class ApiService {
           'accountHolderName': accountHolderName,
         }),
       );
-
       return _parseResponse(response);
-    } catch (e) {
-      print('❌ Withdraw Error: $e');
-      throw Exception('Network error: $e');
+    } catch (e, s) {
+      _logError('POST', url, e, s);
+      return {'error': 'Network error during withdrawal: ${e.toString()}'};
     }
   }
 
@@ -451,19 +534,19 @@ class ApiService {
     required String token,
     required String referenceId,
   }) async {
+    final url = '${ApiEndpoints.baseUrl}/api/wallet/topup/status/$referenceId';
+    _logRequest('GET', url, headers: _getHeaders(token: token));
     try {
-      final url = '${ApiEndpoints.baseUrl}/wallet/topup/status/$referenceId';
-      print('🔗 GET: $url');
-
       final response = await http.get(
         Uri.parse(url),
         headers: _getHeaders(token: token),
       );
-
       return _parseResponse(response);
-    } catch (e) {
-      print('❌ Check Payment Status Error: $e');
-      throw Exception('Network error: $e');
+    } catch (e, s) {
+      _logError('GET', url, e, s);
+      return {
+        'error': 'Network error checking payment status: ${e.toString()}'
+      };
     }
   }
 }
