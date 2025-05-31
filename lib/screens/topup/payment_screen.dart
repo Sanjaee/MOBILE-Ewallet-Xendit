@@ -12,6 +12,7 @@ import '../../utils/constants.dart';
 import '../../utils/helpers.dart';
 import '../../widgets/custom_button.dart';
 import '../../config/app_config.dart';
+import '../../services/notification_service.dart';
 
 class PaymentScreen extends StatefulWidget {
   final PaymentResponse paymentResponse;
@@ -146,6 +147,13 @@ class _PaymentScreenState extends State<PaymentScreen>
 
   void _showPaymentSuccess() {
     if (!mounted) return;
+
+    // Show notification for successful payment
+    NotificationService().showTransactionNotification(
+      type: 'topup',
+      amount: widget.amount.toDouble(),
+      isSuccess: true,
+    );
 
     showDialog(
       context: context,
