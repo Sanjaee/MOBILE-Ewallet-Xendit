@@ -67,9 +67,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: AppColors.primary,
+      statusBarIconBrightness: Brightness.light,
+      statusBarBrightness: Brightness.dark,
+    ));
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
+        top: false,
         child: RefreshIndicator(
           onRefresh: _refreshData,
           child: SingleChildScrollView(
@@ -78,7 +85,14 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 // Header
                 Container(
-                  padding: EdgeInsets.all(AppSizes.paddingLarge),
+                  padding: EdgeInsets.only(
+                    top: MediaQuery.of(context)
+                        .padding
+                        .top, // Padding untuk status bar sistem
+                    left: AppSizes.paddingLarge,
+                    right: AppSizes.paddingLarge,
+                    bottom: AppSizes.paddingLarge,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary,
                     borderRadius: BorderRadius.only(
@@ -88,6 +102,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Column(
                     children: [
+                      // TAMBAHKAN RUANG SEDIKIT DI SINI
+                      SizedBox(height: 10.0), // Anda bisa sesuaikan tinggi ini
                       // App Bar
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -186,15 +202,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                       SizedBox(height: 20),
-
-                      // Balance Card
                       BalanceCard(),
                     ],
                   ),
                 ),
                 SizedBox(height: 20),
-
-                // Features
                 Padding(
                   padding:
                       EdgeInsets.symmetric(horizontal: AppSizes.paddingLarge),
@@ -290,8 +302,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 SizedBox(height: 30),
-
-                // Recent Transactions
                 Consumer<WalletProvider>(
                   builder: (context, walletProvider, child) {
                     if (walletProvider.transactions.isEmpty) {
