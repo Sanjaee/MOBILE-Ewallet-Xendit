@@ -10,6 +10,8 @@ import 'topup/topup_screen.dart';
 import 'transfer/transfer_screen.dart';
 import 'withdraw/withdraw_screen.dart';
 import 'transactions/transaction_history_screen.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -26,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadUserData() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final walletProvider = Provider.of<WalletProvider>(context, listen: false);
-    
+
     if (authProvider.user != null) {
       await walletProvider.loadBalance(authProvider.user!.token);
       await walletProvider.loadTransactions(authProvider.user!.token);
@@ -51,7 +53,8 @@ class _HomeScreenState extends State<HomeScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              final authProvider =
+                  Provider.of<AuthProvider>(context, listen: false);
               await authProvider.logout();
               Navigator.pushReplacementNamed(context, '/login');
             },
@@ -94,21 +97,68 @@ class _HomeScreenState extends State<HomeScreen> {
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    'Halo,',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                    ),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Halo, ',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      Text(
+                                        authProvider.user?.name ?? 'User',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  Text(
-                                    authProvider.user?.name ?? 'User',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
+                                  if (authProvider.user?.phoneNumber !=
+                                      null) ...[
+                                    SizedBox(height: 4),
+                                    GestureDetector(
+                                      onTap: () {
+                                        Clipboard.setData(ClipboardData(
+                                            text: authProvider
+                                                .user!.phoneNumber!));
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                                'Nomor telepon berhasil disalin'),
+                                            duration: Duration(seconds: 2),
+                                          ),
+                                        );
+                                      },
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.phone,
+                                            color: Colors.white70,
+                                            size: 14,
+                                          ),
+                                          SizedBox(width: 4),
+                                          Text(
+                                            authProvider.user!.phoneNumber!,
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          SizedBox(width: 4),
+                                          Icon(
+                                            Icons.copy,
+                                            color: Colors.white70,
+                                            size: 12,
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ],
                               );
                             },
@@ -120,7 +170,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => TransactionHistoryScreen(),
+                                      builder: (context) =>
+                                          TransactionHistoryScreen(),
                                     ),
                                   );
                                 },
@@ -135,7 +186,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                       SizedBox(height: 20),
-                      
+
                       // Balance Card
                       BalanceCard(),
                     ],
@@ -145,7 +196,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 // Features
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: AppSizes.paddingLarge),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: AppSizes.paddingLarge),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -158,7 +210,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       SizedBox(height: 16),
-                      
                       Row(
                         children: [
                           Expanded(
@@ -197,7 +248,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         ],
                       ),
                       SizedBox(height: 12),
-                      
                       Row(
                         children: [
                           Expanded(
@@ -227,7 +277,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => TransactionHistoryScreen(),
+                                    builder: (context) =>
+                                        TransactionHistoryScreen(),
                                   ),
                                 );
                               },
@@ -248,7 +299,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     }
 
                     return Padding(
-                      padding: EdgeInsets.symmetric(horizontal: AppSizes.paddingLarge),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: AppSizes.paddingLarge),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -268,7 +320,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => TransactionHistoryScreen(),
+                                      builder: (context) =>
+                                          TransactionHistoryScreen(),
                                     ),
                                   );
                                 },
@@ -277,13 +330,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             ],
                           ),
                           SizedBox(height: 10),
-                          
                           ListView.builder(
                             shrinkWrap: true,
                             physics: NeverScrollableScrollPhysics(),
-                            itemCount: walletProvider.transactions.take(3).length,
+                            itemCount:
+                                walletProvider.transactions.take(3).length,
                             itemBuilder: (context, index) {
-                              final transaction = walletProvider.transactions[index];
+                              final transaction =
+                                  walletProvider.transactions[index];
                               return Container(
                                 margin: EdgeInsets.only(bottom: 8),
                                 padding: EdgeInsets.all(16),
@@ -303,18 +357,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Container(
                                       padding: EdgeInsets.all(8),
                                       decoration: BoxDecoration(
-                                        color: Helpers.getTransactionColor(transaction.type).withOpacity(0.2),
+                                        color: Helpers.getTransactionColor(
+                                                transaction.type)
+                                            .withOpacity(0.2),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
-                                        Helpers.getTransactionTypeIcon(transaction.type),
+                                        Helpers.getTransactionTypeIcon(
+                                            transaction.type),
                                         style: TextStyle(fontSize: 20),
                                       ),
                                     ),
                                     SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             transaction.type,
@@ -336,18 +394,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                     Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
                                       children: [
                                         Text(
-                                          Helpers.formatCurrency(transaction.amount),
+                                          Helpers.formatCurrency(
+                                              transaction.amount),
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            color: Helpers.getTransactionColor(transaction.type),
+                                            color: Helpers.getTransactionColor(
+                                                transaction.type),
                                             fontSize: 14,
                                           ),
                                         ),
                                         Text(
-                                          Helpers.formatDate(transaction.createdAt),
+                                          Helpers.formatDate(
+                                              transaction.createdAt),
                                           style: TextStyle(
                                             color: AppColors.textSecondary,
                                             fontSize: 10,
