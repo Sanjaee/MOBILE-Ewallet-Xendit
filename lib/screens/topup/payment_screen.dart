@@ -281,9 +281,8 @@ class _PaymentScreenState extends State<PaymentScreen>
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.of(context).pop(); // Close dialog
-                  Navigator.of(context).pop(); // Back to topup screen
-                  Navigator.of(context).pop(); // Back to home screen
+                  // Close all dialogs and screens until we reach home screen
+                  Navigator.of(context).popUntil((route) => route.isFirst);
 
                   // Use Future.microtask to refresh data after navigation
                   Future.microtask(() {
