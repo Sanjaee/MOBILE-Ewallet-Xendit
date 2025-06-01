@@ -11,10 +11,13 @@ class Helpers {
   }
 
   static String formatDate(DateTime date) {
-    return DateFormat('dd MMM yyyy, HH:mm').format(date);
+    // Convert UTC to local time
+    final localDate = date.toLocal();
+    return DateFormat('dd MMM yyyy, HH:mm').format(localDate);
   }
 
-  static void showSnackBar(BuildContext context, String message, {bool isError = false}) {
+  static void showSnackBar(BuildContext context, String message,
+      {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
