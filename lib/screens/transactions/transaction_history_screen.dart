@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/wallet_provider.dart';
-import '../../services/api_service.dart'; // Add this import
+import '../../services/api_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/transaction_item.dart';
 
@@ -21,7 +21,6 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     'WITHDRAW',
     'FEE'
   ];
-  bool _isDebugging = false;
 
   @override
   void initState() {
@@ -40,116 +39,6 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
 
   Future<void> _refreshTransactions() async {
     await _loadTransactions();
-  }
-
-  // NEW: Comprehensive debug method
-  Future<void> _runFullDebug() async {
-    setState(() {
-      _isDebugging = true;
-    });
-
-    try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-      if (authProvider.user?.token == null) {
-        _showDebugDialog('No authentication token found. Please login again.');
-        return;
-      }
-
-      print('🔍 Starting full debug session...');
-      print('👤 User ID: ${authProvider.user!.id}');
-      print('📧 User Email: ${authProvider.user!.email}');
-
-      // Run comprehensive server test
-      final debugResults =
-          await ApiService.fullServerTest(authProvider.user!.token);
-
-      // Format results for display
-      String debugMessage = '🔍 DEBUG RESULTS:\n\n';
-
-      debugResults.forEach((key, value) {
-        debugMessage += '[$key]\n';
-        if (value is Map) {
-          value.forEach((subKey, subValue) {
-            debugMessage += '  $subKey: $subValue\n';
-          });
-        } else {
-          debugMessage += '  $value\n';
-        }
-        debugMessage += '\n';
-      });
-
-      _showDebugDialog(debugMessage);
-    } catch (e) {
-      _showDebugDialog('Debug failed: $e');
-    } finally {
-      setState(() {
-        _isDebugging = false;
-      });
-    }
-  }
-
-  void _showDebugDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Debug Results'),
-        content: SingleChildScrollView(
-          child: Text(
-            message,
-            style: TextStyle(fontSize: 12, fontFamily: 'monospace'),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Close'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // Copy to clipboard would be nice here
-            },
-            child: Text('Copy'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // NEW: Test specific endpoints
-  Future<void> _testEndpoints() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.user?.token == null) return;
-
-    final endpoints = [
-      '/api/transactions',
-      '/transactions',
-      '/users/balance',
-      '/api/users/balance',
-    ];
-
-    String results = 'ENDPOINT TEST RESULTS:\n\n';
-
-    for (final endpoint in endpoints) {
-      try {
-        final url = '${ApiEndpoints.baseUrl}$endpoint';
-        print('Testing: $url');
-
-        final response = await ApiService.getTransactions(
-          token: authProvider.user!.token,
-          page: 1,
-          limit: 1,
-        );
-
-        results +=
-            '$endpoint: ${response.containsKey('error') ? 'FAILED - ${response['error']}' : 'SUCCESS'}\n';
-      } catch (e) {
-        results += '$endpoint: ERROR - $e\n';
-      }
-    }
-
-    _showDebugDialog(results);
   }
 
   List<dynamic> get _filteredTransactions {
@@ -183,24 +72,6 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       appBar: AppBar(
         title: Text('Riwayat Transaksi'),
         actions: [
-          // NEW: Debug button
-          IconButton(
-            onPressed: _isDebugging ? null : _runFullDebug,
-            icon: _isDebugging
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(Icons.bug_report),
-            tooltip: 'Full Debug',
-          ),
-          // NEW: Endpoint test button
-          IconButton(
-            onPressed: _testEndpoints,
-            icon: Icon(Icons.network_check),
-            tooltip: 'Test Endpoints',
-          ),
           IconButton(
             onPressed: _refreshTransactions,
             icon: Icon(Icons.refresh),
@@ -210,43 +81,6 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
       ),
       body: Column(
         children: [
-          // Debug info banner
-          Consumer<WalletProvider>(
-            builder: (context, walletProvider, child) {
-              if (walletProvider.error != null) {
-                return Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.all(12),
-                  color: Colors.red.shade50,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'DEBUG INFO:',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.red.shade700,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Base URL: ${ApiEndpoints.baseUrl}',
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.red.shade600),
-                      ),
-                      Text(
-                        'Error: ${walletProvider.error}',
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.red.shade600),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return SizedBox.shrink();
-            },
-          ),
-
           // Filter Chips
           Container(
             padding: EdgeInsets.symmetric(horizontal: AppSizes.paddingMedium),
@@ -334,19 +168,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                           ),
                         ),
                         SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            ElevatedButton(
-                              onPressed: _refreshTransactions,
-                              child: Text('Coba Lagi'),
-                            ),
-                            SizedBox(width: 12),
-                            OutlinedButton(
-                              onPressed: _runFullDebug,
-                              child: Text('Debug'),
-                            ),
-                          ],
+                        ElevatedButton(
+                          onPressed: _refreshTransactions,
+                          child: Text('Coba Lagi'),
                         ),
                       ],
                     ),
@@ -384,11 +208,6 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                             color: AppColors.textSecondary,
                           ),
                           textAlign: TextAlign.center,
-                        ),
-                        SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _runFullDebug,
-                          child: Text('Debug Server'),
                         ),
                       ],
                     ),

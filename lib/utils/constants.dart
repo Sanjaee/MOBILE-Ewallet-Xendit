@@ -21,7 +21,8 @@ class AppSizes {
 }
 
 class ApiEndpoints {
-  static const String baseUrl = 'https://be-ewallet-xendit-xkzb.vercel.app';
+  static const String baseUrl =
+      'https://be-ewallet-xendit-xkzb.vercel.app'; //http://10.0.2.2:3000
 }
 
 class PaymentMethods {
