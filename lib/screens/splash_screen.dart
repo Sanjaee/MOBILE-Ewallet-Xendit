@@ -51,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             SizedBox(height: 30),
             Text(
-              'E-Wallet',
+              'Zacode E-Wallet',
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,

@@ -28,7 +28,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => WalletProvider()),
       ],
       child: MaterialApp(
-        title: 'E-Wallet App',
+        title: 'Zacode E-Wallet App',
         theme: ThemeData(
           primaryColor: AppColors.primary,
           scaffoldBackgroundColor: AppColors.background,

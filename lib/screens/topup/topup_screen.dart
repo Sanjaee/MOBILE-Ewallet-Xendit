@@ -279,7 +279,7 @@ class _TopupScreenState extends State<TopupScreen> {
 
               // E-Wallet Options
               Text(
-                'E-Wallet',
+                'Zacode E-Wallet',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
